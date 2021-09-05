@@ -1,6 +1,9 @@
-version: "3.9"
+version: "3.3"
 
 services:
-  little-queue:
-    image: cendyne/image-processing:latest
-
+  image-processor:
+    image: cendyne/image-processor:latest
+    environment:
+      - BASE_URL
+      - QUEUE
+      - TOKEN

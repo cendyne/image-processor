@@ -285,7 +285,7 @@
     )))
 
 (defn worker [baseUrl token queue]
-  (def authorization (string "Authorization: Bearer replace-me"))
+  (def authorization (string "Authorization: Bearer " token))
   (def queue-url (string baseUrl "/queues/" queue "/job"))
   (forever
     (var results false)
