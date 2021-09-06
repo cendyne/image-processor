@@ -25,7 +25,7 @@ fi
 docker buildx build --platform "$PLATFORMS" . \
         --target=app \
         --tag "$DOCKER_REPO:latest" \
-        --tag "$DOCKER_REPO:${GITHUB_SHA:0:7}"
+        --tag "$DOCKER_REPO:${GITHUB_SHA:0:7}" \
         --label "org.opencontainers.image.revision=$GITHUB_SHA" \
         --label "org.opencontainers.image.created=$DATE" \
         --label "org.opencontainers.image.source=https://github.com/cendyne/image-processor" \
