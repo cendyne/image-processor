@@ -74,16 +74,16 @@
     # Fallback is supported by ImageMagick
     source))
 
-(defn to-other [contexts source dest dest-type]
+(defn to-other [contexts source dest dest-type extra-arguments]
   (case dest-type
     "image/avif"
-    (sh/$ avifenc ,source ,dest)
+    (sh/$ avifenc ,source (splice extra-arguments) ,dest)
     "image/webp"
-    (sh/$ cwebp ,source -o ,dest)
+    (sh/$ cwebp ,source (splice extra-arguments) -o ,dest)
     "image/jxl"
-    (sh/$ cjxl ,source ,dest)
+    (sh/$ cjxl ,source (splice extra-arguments) ,dest)
     # Fallback to ImageMagick
-    (sh/$ convert ,source ,dest)
+    (sh/$ convert ,source (splice extra-arguments) ,dest)
     ))
 
 (defn imagemagick-supported? [content-type]
@@ -97,27 +97,31 @@
   ))
 
 
-(defn convert-image [contexts source source-type dest dest-type]
+(defn convert-image [contexts source source-type dest dest-type extra-arguments]
   (printf "Converting %p -> %p" source dest)
   (def source-image-magick (imagemagick-supported? source-type))
   (def dest-image-magick (imagemagick-supported? dest-type))
 
   (cond
-    (= source-type dest-type)
+    (and (= source-type dest-type) (empty? extra-arguments))
     (sh/$ cp ,source ,dest)
 
     (and source-image-magick dest-image-magick)
-    (sh/$ convert ,source ,dest)
+    (do
+      (printf "convert %s %p %s" source extra-arguments dest)
+      (sh/$ convert ,source (splice extra-arguments) ,dest)
+      )
 
     (and (not source-image-magick) dest-image-magick)
     (do
       (def source (to-imagemagick contexts source source-type))
-      (sh/$ convert ,source ,dest)
+      (printf "convert %s %p %s" source extra-arguments dest)
+      (sh/$ convert ,source (splice extra-arguments) ,dest)
       )
 
     (and source-image-magick (= "image/png" source-type) (not dest-image-magick))
     (do
-      (to-other contexts source dest dest-type)
+      (to-other contexts source dest dest-type extra-arguments)
       )
 
     (and source-image-magick (not dest-image-magick))
@@ -125,11 +129,11 @@
       # Convert from whatever to png
       (def intermediate (to-imagemagick contexts source source-type))
       # Then to the destination format
-      (to-other contexts intermediate dest dest-type)
+      (to-other contexts intermediate dest dest-type extra-arguments)
       )
 
     true
-    (to-other contexts source dest dest-type)
+    (to-other contexts source dest dest-type extra-arguments)
   ))
 
 (defn resize-image [mode contexts source source-type dest dimensions]
@@ -163,6 +167,8 @@
 
 (defn action [baseUrl authorization contexts data]
   (var id (get data "id"))
+  (var extra-arguments (get data "arguments" []))
+  (printf "extra-arguments %p" extra-arguments)
   (unless id (error "id not specified"))
   (var output-content-type (get data "output"))
   (unless output-content-type (error "output not specified"))
@@ -183,7 +189,7 @@
   # Convert
   (def converted (gen-temp-file output-content-type))
   (array/push (get contexts :temp-files) converted)
-  (convert-image contexts source source-type converted output-content-type)
+  (convert-image contexts source source-type converted output-content-type extra-arguments)
   (def output @{
     :queue (or (get data "output-queue") (get data "outputQueue"))
     :content-type output-content-type
